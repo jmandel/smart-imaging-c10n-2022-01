@@ -15,8 +15,7 @@ const clientDetails = {
   clientPrivateKey: jose.importJWK(privateJwks.keys[1], "RS384"),
   clientId: "e2748445-72e3-4160-8011-0fa526c616a5",
   tokenEndpoint: "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token",
-  introspectEndpoint:
-    "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/introspect",
+  introspectEndpoint: "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/introspect",
 };
 
 interface AccessTokenResposne {
@@ -49,8 +48,7 @@ async function generateBackendServicesAuthToken() {
 
   const tokenRequestParams = {
     grant_type: "client_credentials",
-    client_assertion_type:
-      "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+    client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
     client_assertion: clientAuthnAssertion,
   };
 
@@ -93,11 +91,7 @@ interface AuthorizedRequest extends express.Request {
   authorizedForPatientFullUrl?: string;
 }
 
-const tokenIntrospectionMiddleware: express.Handler = async (
-  req: AuthorizedRequest,
-  res,
-  next
-) => {
+const tokenIntrospectionMiddleware: express.Handler = async (req: AuthorizedRequest, res, next) => {
   try {
     const authz = req.headers.authorization;
     const accessToken = authz.split(/bearer /i, 2)[1];
@@ -118,10 +112,7 @@ const tokenIntrospectionMiddleware: express.Handler = async (
       fullUrl = introspected.sub;
       patient = fhirUser;
     } else {
-      fullUrl = introspected.sub.replace(
-        `RelatedPerson/${fhirUser.id}`,
-        `Patient/${fhirUser.patient.reference}`
-      );
+      fullUrl = introspected.sub.replace(`RelatedPerson/${fhirUser.id}`, `Patient/${fhirUser.patient.reference}`);
       patient = (
         await axios({
           url: fullUrl,
@@ -160,9 +151,7 @@ export function createApp() {
     const response = JSON.parse(JSON.stringify(imagingStudyBundle));
     response.entry.forEach((e) => {
       e.fullUrl = `${PUBLIC_URL}/fhir/ImagingStudy/${e.resource.id}`;
-      e.resource.contained[0].address = `${PUBLIC_URL}/fhir/Patient/${
-        req.query.patient
-      }/$wado-rs/studies/${
+      e.resource.contained[0].address = `${PUBLIC_URL}/fhir/Patient/${req.query.patient}/$wado-rs/studies/${
         e.resource.identifier[0].value.split("urn:oid:")[1]
       }`;
       e.resource.subject.reference = req.authorizedForPatientFullUrl;
@@ -171,21 +160,18 @@ export function createApp() {
     res.json(response);
   });
 
-  app.get(
-    "/fhir/Patient/:pid/\\$wado-rs/studies/:oid",
-    function (req: AuthorizedRequest, res, next) {
-      const patient = req.params.pid;
-      if (patient !== req.authorizedForPatient.id) {
-        res.status(401);
-        return res.json({
-          error: "Unauthorized",
-          message: `Requested data for Patient ${req.query.patient} but access token is only authorized for ${req.authorizedForPatient.id}`,
-        });
-      }
-
-      res.sendFile(path.join(__dirname, "fixtures", `${req.params.oid}.dcm`));
+  app.get("/fhir/Patient/:pid/\\$wado-rs/studies/:oid", function (req: AuthorizedRequest, res, next) {
+    const patient = req.params.pid;
+    if (patient !== req.authorizedForPatient.id) {
+      res.status(401);
+      return res.json({
+        error: "Unauthorized",
+        message: `Requested data for Patient ${req.query.patient} but access token is only authorized for ${req.authorizedForPatient.id}`,
+      });
     }
-  );
+
+    res.sendFile(path.join(__dirname, "fixtures", `${req.params.oid}.dcm`));
+  });
 
   app.get("/hello", function (req, res) {
     res.send("Hello World");

@@ -1,0 +1,36 @@
+{
+  "resourceType": "Bundle",
+  "entry": [
+    {
+      "fullUrl": "PLACEHOLDER",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "example",
+        "contained": [{
+            "resourceType": "Endpoint",
+            "id": "e",
+            "status": "active",
+            "connectionType": {
+                "system": "http://terminology.hl7.org/CodeSystem/endpoint-connection-type",
+                "code": "dicom-wado-rs"
+            },
+            "payloadType": [{"text": "DICOM Study"}],
+            "address": "PLACEHOLDER"
+
+        }],
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.1055.1.20111103112244831.40200514.30965937"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "PLACEHOLDER"
+        },
+        "started": "2011-01-01T11:01:20+03:00",
+        "endpoint": {"reference": "#e"}
+      }
+    }
+  ]
+}

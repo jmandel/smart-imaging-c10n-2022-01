@@ -16,7 +16,7 @@ export const tokenIntrospectionMiddleware: express.Handler = async (req: Authori
     const authz = req.headers.authorization;
     const accessToken = authz.split(/bearer /i, 2)[1];
 
-    /// TODO extra connection details forn env or a path segment
+    /// TODO grab extra connection details from env or a path segment, instead of hardcoding `c10n...`
     /// TODO cache these so we don't make a million calls for every request :-)
     const am = await AuthorizationManager.create(c10nClientDetails);
     const introspectionResponse = await am.introspect(accessToken);

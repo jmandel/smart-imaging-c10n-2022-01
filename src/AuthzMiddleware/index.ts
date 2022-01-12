@@ -19,28 +19,32 @@ export const tokenIntrospectionMiddleware: express.Handler = async (req: Authori
     /// TODO grab extra connection details from env or a path segment, instead of hardcoding `c10n...`
     /// TODO cache these so we don't make a million calls for every request :-)
     const am = await AuthorizationManager.create(c10nClientDetails);
+
     const introspectionResponse = await am.introspect(accessToken);
     const { fullUrl, patient } = await am.introspectedPatient(introspectionResponse, accessToken);
 
     req.authorizedForPatient = patient;
     req.authorizedForPatientFullUrl = fullUrl;
     req.authorizedForPatientHash = crypto.createHash("sha256").update(req.authorizedForPatientFullUrl).digest("base64");
-  } catch {}
+  } catch(e) {
+    console.log("Failed to introspect");
+    console.error(e);
+  }
 
   next();
 };
 
 class AuthorizationManager {
+  clientPublicKeyId: string;
   #clientPrivateKey: jose.KeyLike;
-  #clientPublicKeyId: string;
-  #clientId: string;
-  #canonicalFhirServer: string;
+  clientId: string;
+  canonicalFhirServer: string;
   discoveryResponse: DiscoveryResponse;
   constructor({ clientPrivateKey, clientPublicKeyId, clientId, canonicalFhirServer, discoveryResponse }) {
     this.#clientPrivateKey = clientPrivateKey;
-    this.#clientPublicKeyId = clientPublicKeyId;
-    this.#clientId = clientId;
-    this.#canonicalFhirServer = canonicalFhirServer;
+    this.clientPublicKeyId = clientPublicKeyId;
+    this.clientId = clientId;
+    this.canonicalFhirServer = canonicalFhirServer;
     this.discoveryResponse = discoveryResponse;
   }
 
@@ -70,15 +74,15 @@ class AuthorizationManager {
 
   async generateBackendServicesAuthToken() {
     const clientAuthnAssertion = await new jose.SignJWT({
-      iss: this.#clientId,
-      sub: this.#clientId,
+      iss: this.clientId,
+      sub: this.clientId,
       aud: this.discoveryResponse.token_endpoint,
     })
       .setExpirationTime("2 minutes")
       .setProtectedHeader({
         alg: "RS384",
         typ: "JWT",
-        kid: this.#clientPublicKeyId,
+        kid: this.clientPublicKeyId,
       })
       .setJti(randomUUID())
       .sign(this.#clientPrivateKey);
@@ -121,14 +125,15 @@ class AuthorizationManager {
   }
 
   async introspectedPatient(introspected: IntrospectionResponse, accessToken?: string) {
-    const backendServicesToken = await this.generateBackendServicesAuthToken();
+    const backendToken = (await this.generateBackendServicesAuthToken()).access_token;
 
     // Epic does not yet populate `patient`, so we use `sub` and follow links
     const fhirUser: any = (
       await axios({
         url: introspected.sub,
         headers: {
-          authorization: `Bearer ${backendServicesToken.access_token}`,
+          // SHOULD work with backendToken but doesn't (Epic bug, WIP)
+          authorization: `Bearer ${accessToken}`, 
         },
       })
     ).data;
@@ -139,12 +144,12 @@ class AuthorizationManager {
       fullUrl = introspected.sub;
       patient = fhirUser;
     } else {
-      fullUrl = introspected.sub.replace(`RelatedPerson/${fhirUser.id}`, `Patient/${fhirUser.patient.reference}`);
+      fullUrl = introspected.sub.replace(`RelatedPerson/${fhirUser.id}`, `${fhirUser.patient.reference}`);
       patient = (
         await axios({
           url: fullUrl,
           headers: {
-            authorization: `Bearer ${accessToken}`,
+            authorization: `Bearer ${backendToken}`,
           },
         })
       ).data;
